@@ -1,0 +1,351 @@
+{
+  "name": "$75000 Revenue Tracking Subflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "revenue-tracking",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "revenue-webhook",
+      "name": "Revenue Data Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "revenue-tracking-webhook"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 * * 0"
+            }
+          ]
+        }
+      },
+      "id": "weekly-schedule",
+      "name": "Weekly Revenue Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 480]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "current-date",
+              "name": "current_date",
+              "value": "={{ new Date().toISOString().split('T')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "target-revenue",
+              "name": "target_revenue",
+              "value": 75000,
+              "type": "number"
+            },
+            {
+              "id": "current-month",
+              "name": "current_month",
+              "value": "={{ new Date().getMonth() + 1 }}",
+              "type": "number"
+            },
+            {
+              "id": "current-year",
+              "name": "current_year",
+              "value": "={{ new Date().getFullYear() }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-tracking-vars",
+      "name": "Set Tracking Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 390]
+    },
+    {
+      "parameters": {
+        "url": "=https://www.googleapis.com/youtube/analytics/v2/reports",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.YOUTUBE_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "ids",
+              "value": "channel=={{ $env.YOUTUBE_CHANNEL_ID }}"
+            },
+            {
+              "name": "startDate",
+              "value": "={{ $json.current_year }}-{{ String($json.current_month).padStart(2, '0') }}-01"
+            },
+            {
+              "name": "endDate",
+              "value": "={{ $json.current_date }}"
+            },
+            {
+              "name": "metrics",
+              "value": "estimatedRevenue,views,subscribersGained,averageViewDuration"
+            },
+            {
+              "name": "dimensions",
+              "value": "day"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-youtube-analytics",
+      "name": "Fetch YouTube Analytics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 390],
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "youtube-oauth",
+          "name": "YouTube OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process YouTube Analytics data\nconst analyticsData = $input.first().json;\nconst targetRevenue = 75000;\n\n// Initialize totals\nlet totalRevenue = 0;\nlet totalViews = 0;\nlet totalSubscribers = 0;\nlet totalWatchTime = 0;\n\n// Process rows if they exist\nif (analyticsData.rows && analyticsData.rows.length > 0) {\n  analyticsData.rows.forEach(row => {\n    totalRevenue += parseFloat(row[1] || 0);\n    totalViews += parseInt(row[2] || 0);\n    totalSubscribers += parseInt(row[3] || 0);\n    totalWatchTime += parseFloat(row[4] || 0);\n  });\n}\n\n// Calculate progress\nconst progressPercentage = (totalRevenue / targetRevenue) * 100;\nconst remainingRevenue = targetRevenue - totalRevenue;\nconst daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();\nconst currentDay = new Date().getDate();\nconst daysRemaining = daysInMonth - currentDay;\nconst dailyTargetRemaining = daysRemaining > 0 ? remainingRevenue / daysRemaining : 0;\n\n// Calculate RPM (Revenue per Mille)\nconst rpm = totalViews > 0 ? (totalRevenue / totalViews) * 1000 : 0;\n\n// Determine status\nlet status = 'on_track';\nlet statusEmoji = '📈';\nlet statusMessage = 'On track to meet revenue target';\n\nif (progressPercentage >= 100) {\n  status = 'target_achieved';\n  statusEmoji = '🎉';\n  statusMessage = 'Revenue target achieved!';\n} else if (progressPercentage < 50 && currentDay > 15) {\n  status = 'behind_target';\n  statusEmoji = '⚠️';\n  statusMessage = 'Behind revenue target';\n} else if (progressPercentage < 25 && currentDay > 20) {\n  status = 'critical';\n  statusEmoji = '🚨';\n  statusMessage = 'Critically behind revenue target';\n}\n\n// Format currency\nconst formatCurrency = (amount) => {\n  return new Intl.NumberFormat('en-US', {\n    style: 'currency',\n    currency: 'USD'\n  }).format(amount);\n};\n\n// Format numbers\nconst formatNumber = (num) => {\n  return new Intl.NumberFormat('en-US').format(num);\n};\n\nreturn {\n  json: {\n    // Revenue metrics\n    total_revenue: totalRevenue,\n    target_revenue: targetRevenue,\n    remaining_revenue: remainingRevenue,\n    progress_percentage: Math.round(progressPercentage * 100) / 100,\n    \n    // Performance metrics\n    total_views: totalViews,\n    total_subscribers: totalSubscribers,\n    total_watch_time: totalWatchTime,\n    rpm: Math.round(rpm * 100) / 100,\n    \n    // Time metrics\n    current_day: currentDay,\n    days_remaining: daysRemaining,\n    daily_target_remaining: Math.round(dailyTargetRemaining * 100) / 100,\n    \n    // Status\n    status: status,\n    status_emoji: statusEmoji,\n    status_message: statusMessage,\n    \n    // Formatted values for display\n    formatted: {\n      total_revenue: formatCurrency(totalRevenue),\n      target_revenue: formatCurrency(targetRevenue),\n      remaining_revenue: formatCurrency(remainingRevenue),\n      daily_target_remaining: formatCurrency(dailyTargetRemaining),\n      total_views: formatNumber(totalViews),\n      total_subscribers: formatNumber(totalSubscribers),\n      rpm: formatCurrency(rpm)\n    },\n    \n    // Timestamp\n    calculated_at: new Date().toISOString(),\n    month: new Date().getMonth() + 1,\n    year: new Date().getFullYear()\n  }\n};"
+      },
+      "id": "calculate-revenue-metrics",
+      "name": "Calculate Revenue Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 390]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "status-check",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "target_achieved",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-achievement",
+      "name": "Check Target Achievement",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 390]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"🎉 $75,000 Revenue Target ACHIEVED!\",\n      \"description\": \"Congratulations! You've reached your monthly revenue goal!\",\n      \"color\": 65280,\n      \"fields\": [\n        {\n          \"name\": \"💰 Total Revenue\",\n          \"value\": \"{{ $json.formatted.total_revenue }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"🎯 Target\",\n          \"value\": \"{{ $json.formatted.target_revenue }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"📊 Progress\",\n          \"value\": \"{{ $json.progress_percentage }}%\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"👀 Total Views\",\n          \"value\": \"{{ $json.formatted.total_views }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"👥 New Subscribers\",\n          \"value\": \"{{ $json.formatted.total_subscribers }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"💵 RPM\",\n          \"value\": \"{{ $json.formatted.rpm }}\",\n          \"inline\": true\n        }\n      ],\n      \"timestamp\": \"{{ $json.calculated_at }}\",\n      \"footer\": {\n        \"text\": \"AI Video Renderer - Revenue Tracker\"\n      },\n      \"thumbnail\": {\n        \"url\": \"https://cdn-icons-png.flaticon.com/512/2936/2936719.png\"\n      }\n    }\n  ],\n  \"username\": \"Revenue Tracker\",\n  \"avatar_url\": \"https://cdn-icons-png.flaticon.com/512/2936/2936719.png\"\n}",
+        "options": {}
+      },
+      "id": "celebration-notification",
+      "name": "Send Celebration Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"{{ $json.status_emoji }} Revenue Progress Report\",\n      \"description\": \"{{ $json.status_message }}\",\n      \"color\": {{ $json.status === 'critical' ? 16711680 : ($json.status === 'behind_target' ? 16776960 : 3447003) }},\n      \"fields\": [\n        {\n          \"name\": \"💰 Current Revenue\",\n          \"value\": \"{{ $json.formatted.total_revenue }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"🎯 Target Revenue\",\n          \"value\": \"{{ $json.formatted.target_revenue }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"📊 Progress\",\n          \"value\": \"{{ $json.progress_percentage }}%\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"💸 Remaining\",\n          \"value\": \"{{ $json.formatted.remaining_revenue }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"📅 Days Left\",\n          \"value\": \"{{ $json.days_remaining }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"🎯 Daily Target\",\n          \"value\": \"{{ $json.formatted.daily_target_remaining }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"👀 Total Views\",\n          \"value\": \"{{ $json.formatted.total_views }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"👥 New Subscribers\",\n          \"value\": \"{{ $json.formatted.total_subscribers }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"💵 RPM\",\n          \"value\": \"{{ $json.formatted.rpm }}\",\n          \"inline\": true\n        }\n      ],\n      \"timestamp\": \"{{ $json.calculated_at }}\",\n      \"footer\": {\n        \"text\": \"AI Video Renderer - Revenue Tracker\"\n      }\n    }\n  ],\n  \"username\": \"Revenue Tracker\",\n  \"avatar_url\": \"https://cdn-icons-png.flaticon.com/512/2936/2936719.png\"\n}",
+        "options": {}
+      },
+      "id": "progress-notification",
+      "name": "Send Progress Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1340, 480]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"{{ $env.TELEGRAM_CHAT_ID }}\",\n  \"text\": \"{{ $json.status_emoji }} *Revenue Progress Report*\\n\\n💰 *Current:* {{ $json.formatted.total_revenue }}\\n🎯 *Target:* {{ $json.formatted.target_revenue }}\\n📊 *Progress:* {{ $json.progress_percentage }}%\\n💸 *Remaining:* {{ $json.formatted.remaining_revenue }}\\n📅 *Days Left:* {{ $json.days_remaining }}\\n🎯 *Daily Target:* {{ $json.formatted.daily_target_remaining }}\\n\\n📈 *Performance:*\\n👀 Views: {{ $json.formatted.total_views }}\\n👥 Subscribers: {{ $json.formatted.total_subscribers }}\\n💵 RPM: {{ $json.formatted.rpm }}\\n\\n{{ $json.status_message }}\\n\\n🤖 AI Video Renderer\",\n  \"parse_mode\": \"Markdown\",\n  \"disable_web_page_preview\": true\n}",
+        "options": {}
+      },
+      "id": "telegram-progress",
+      "name": "Send Telegram Progress",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1560, 390]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"revenue_data\": {\n    \"total_revenue\": {{ $json.total_revenue }},\n    \"target_revenue\": {{ $json.target_revenue }},\n    \"progress_percentage\": {{ $json.progress_percentage }},\n    \"status\": \"{{ $json.status }}\",\n    \"days_remaining\": {{ $json.days_remaining }},\n    \"daily_target_remaining\": {{ $json.daily_target_remaining }}\n  },\n  \"performance_data\": {\n    \"total_views\": {{ $json.total_views }},\n    \"total_subscribers\": {{ $json.total_subscribers }},\n    \"rpm\": {{ $json.rpm }}\n  },\n  \"calculated_at\": \"{{ $json.calculated_at }}\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1780, 390]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Revenue Data Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Tracking Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Revenue Check": {
+      "main": [
+        [
+          {
+            "node": "Set Tracking Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Tracking Variables": {
+      "main": [
+        [
+          {
+            "node": "Fetch YouTube Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch YouTube Analytics": {
+      "main": [
+        [
+          {
+            "node": "Calculate Revenue Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Revenue Metrics": {
+      "main": [
+        [
+          {
+            "node": "Check Target Achievement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Target Achievement": {
+      "main": [
+        [
+          {
+            "node": "Send Celebration Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Progress Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Celebration Notification": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Progress Notification": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram Progress": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ai-video-renderer"
+  },
+  "id": "revenue-tracking-subflow",
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "revenue",
+      "name": "Revenue"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "analytics",
+      "name": "Analytics"
+    }
+  ]
+}

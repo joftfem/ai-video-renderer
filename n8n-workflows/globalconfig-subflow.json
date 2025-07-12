@@ -1,0 +1,282 @@
+{
+  "name": "Global Configuration Subflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "global-config",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "config-webhook",
+      "name": "Configuration Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "global-config-webhook"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "config-refresh-schedule",
+      "name": "Config Refresh Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 480]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "youtube-config",
+              "name": "youtube_config",
+              "value": "={\n  \"client_id\": \"{{ $env.YOUTUBE_CLIENT_ID }}\",\n  \"client_secret\": \"{{ $env.YOUTUBE_CLIENT_SECRET }}\",\n  \"refresh_token\": \"{{ $env.YOUTUBE_REFRESH_TOKEN }}\",\n  \"access_token\": \"{{ $env.YOUTUBE_ACCESS_TOKEN }}\",\n  \"channel_id\": \"{{ $env.YOUTUBE_CHANNEL_ID }}\",\n  \"default_category\": \"{{ $env.YOUTUBE_DEFAULT_CATEGORY }}\",\n  \"default_privacy\": \"{{ $env.YOUTUBE_DEFAULT_PRIVACY }}\",\n  \"default_tags\": [\"AI\", \"automation\", \"technology\"],\n  \"upload_defaults\": {\n    \"notify_subscribers\": true,\n    \"public_stats_viewable\": true,\n    \"made_for_kids\": false\n  }\n}",
+              "type": "object"
+            },
+            {
+              "id": "ai-services-config",
+              "name": "ai_services_config",
+              "value": "={\n  \"google\": {\n    \"api_key\": \"{{ $env.GOOGLE_API_KEY }}\",\n    \"ai_studio_key\": \"{{ $env.GOOGLE_AI_STUDIO_KEY }}\"\n  },\n  \"elevenlabs\": {\n    \"api_key\": \"{{ $env.ELEVENLABS_KEY }}\",\n    \"model_id\": \"eleven_multilingual_v2\",\n    \"voice_settings\": {\n      \"stability\": 0.5,\n      \"similarity_boost\": 0.8,\n      \"style\": 0.0,\n      \"use_speaker_boost\": true\n    }\n  },\n  \"huggingface\": {\n    \"token\": \"{{ $env.HF_TOKEN }}\",\n    \"base_url\": \"https://api-inference.huggingface.co\",\n    \"models\": {\n      \"text_generation\": \"microsoft/DialoGPT-medium\",\n      \"image_generation\": \"runwayml/stable-diffusion-v1-5\",\n      \"speech_recognition\": \"openai/whisper-large-v3\"\n    }\n  },\n  \"json2video\": {\n    \"api_key\": \"{{ $env.JSON2VIDEO_KEY }}\"\n  }\n}",
+              "type": "object"
+            },
+            {
+              "id": "media-services-config",
+              "name": "media_services_config",
+              "value": "={\n  \"pixabay\": {\n    \"api_key\": \"{{ $env.PIXABAY_KEY }}\",\n    \"base_url\": \"https://pixabay.com/api\",\n    \"default_params\": {\n      \"image_type\": \"photo\",\n      \"orientation\": \"horizontal\",\n      \"category\": \"all\",\n      \"min_width\": 1920,\n      \"min_height\": 1080,\n      \"safesearch\": \"true\",\n      \"per_page\": 20\n    }\n  },\n  \"pexels\": {\n    \"api_key\": \"{{ $env.PEXELS_KEY }}\",\n    \"base_url\": \"https://api.pexels.com/v1/\",\n    \"default_params\": {\n      \"orientation\": \"landscape\",\n      \"size\": \"large\",\n      \"per_page\": 20\n    }\n  },\n  \"bitly\": {\n    \"access_token\": \"{{ $env.BITLY_TOKEN }}\",\n    \"base_url\": \"https://api-ssl.bitly.com/v4\",\n    \"default_domain\": \"bit.ly\"\n  }\n}",
+              "type": "object"
+            },
+            {
+              "id": "notifications-config",
+              "name": "notifications_config",
+              "value": "={\n  \"discord\": {\n    \"webhook_url\": \"{{ $env.DISCORD_WEBHOOK_URL }}\",\n    \"username\": \"AI Video Bot\",\n    \"avatar_url\": \"https://cdn.discordapp.com/embed/avatars/0.png\",\n    \"embed_color\": 3447003\n  },\n  \"telegram\": {\n    \"bot_token\": \"{{ $env.TELEGRAM_BOT_TOKEN }}\",\n    \"chat_id\": \"{{ $env.TELEGRAM_CHAT_ID }}\",\n    \"parse_mode\": \"Markdown\"\n  },\n  \"reddit\": {\n    \"client_id\": \"{{ $env.REDDIT_CLIENT_ID }}\",\n    \"client_secret\": \"{{ $env.REDDIT_SECRET }}\"\n  }\n}",
+              "type": "object"
+            },
+            {
+              "id": "gcp-config",
+              "name": "gcp_config",
+              "value": "={\n  \"project_id\": \"{{ $env.GOOGLE_PROJECT_ID }}\",\n  \"region\": \"{{ $env.GCP_REGION }}\",\n  \"zone\": \"{{ $env.GCP_ZONE }}\",\n  \"service_account_key\": \"{{ $env.GCP_SERVICE_ACCOUNT_KEY }}\",\n  \"secret_manager\": {\n    \"enabled\": true,\n    \"secrets\": {\n      \"youtube_refresh_token\": \"youtube-refresh-token\",\n      \"youtube_access_token\": \"youtube-access-token\",\n      \"api_keys\": \"api-keys-bundle\"\n    }\n  },\n  \"cloud_functions\": {\n    \"token_refresh_url\": \"{{ $env.GCP_TOKEN_REFRESH_FUNCTION_URL }}\",\n    \"notification_url\": \"{{ $env.GCP_NOTIFICATION_FUNCTION_URL }}\"\n  },\n  \"pubsub\": {\n    \"topics\": {\n      \"video_upload\": \"video-upload-topic\",\n      \"analytics_update\": \"analytics-update-topic\",\n      \"system_health\": \"system-health-topic\"\n    }\n  }\n}",
+              "type": "object"
+            },
+            {
+              "id": "system-config",
+              "name": "system_config",
+              "value": "={\n  \"n8n\": {\n    \"encryption_key\": \"{{ $env.N8N_ENCRYPTION_KEY }}\",\n    \"timezone\": \"{{ $env.GENERIC_TIMEZONE }}\",\n    \"webhook_url\": \"{{ $env.WEBHOOK_URL }}\",\n    \"basic_auth\": {\n      \"active\": \"{{ $env.N8N_BASIC_AUTH_ACTIVE }}\",\n      \"user\": \"{{ $env.N8N_BASIC_AUTH_USER }}\",\n      \"password\": \"{{ $env.N8N_BASIC_AUTH_PASSWORD }}\"\n    }\n  },\n  \"monitoring\": {\n    \"health_check_interval\": 300,\n    \"max_memory_usage\": 80,\n    \"max_cpu_usage\": 85,\n    \"max_disk_usage\": 90,\n    \"restart_threshold\": 3,\n    \"notification_threshold\": 2\n  },\n  \"video_processing\": {\n    \"max_duration\": 600,\n    \"output_format\": \"mp4\",\n    \"quality\": \"1080p\",\n    \"frame_rate\": 30,\n    \"audio_bitrate\": \"128k\",\n    \"video_bitrate\": \"2500k\"\n  },\n  \"database\": {\n    \"type\": \"{{ $env.DB_TYPE }}\",\n    \"sqlite_database\": \"{{ $env.DB_SQLITE_DATABASE }}\"\n  }\n}",
+              "type": "object"
+            },
+            {
+              "id": "timestamp",
+              "name": "last_updated",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "load-global-config",
+      "name": "Load Global Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 390]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate and process global configuration\nconst config = $input.first().json;\n\n// Validation functions\nconst validateUrl = (url) => {\n  try {\n    new URL(url);\n    return true;\n  } catch {\n    return false;\n  }\n};\n\nconst validateApiKey = (key) => {\n  return key && key.length > 10 && !key.includes('your_') && !key.includes('YOUR_');\n};\n\nconst validateConfig = (configObj, configName) => {\n  const errors = [];\n  const warnings = [];\n  \n  switch (configName) {\n    case 'youtube_config':\n      if (!validateApiKey(configObj.api_key)) {\n        errors.push('Invalid YouTube API key');\n      }\n      if (!configObj.client_id || !configObj.client_secret) {\n        errors.push('Missing YouTube OAuth credentials');\n      }\n      if (!configObj.channel_id) {\n        warnings.push('YouTube channel ID not set');\n      }\n      break;\n      \n    case 'ai_services_config':\n      if (!validateApiKey(configObj.google?.api_key)) {\n        warnings.push('Google API key not configured');\n      }\n      if (!validateApiKey(configObj.elevenlabs?.api_key)) {\n        warnings.push('ElevenLabs API key not configured');\n      }\n      if (!validateApiKey(configObj.huggingface?.token)) {\n        warnings.push('Hugging Face token not configured');\n      }\n      if (!validateApiKey(configObj.json2video?.api_key)) {\n        warnings.push('JSON2Video API key not configured');\n      }\n      break;\n      \n    case 'notification_config':\n      if (!validateUrl(configObj.discord?.webhook_url)) {\n        warnings.push('Discord webhook URL not configured');\n      }\n      if (!configObj.telegram?.bot_token || !configObj.telegram?.chat_id) {\n        warnings.push('Telegram configuration incomplete');\n      }\n      break;\n      \n    case 'gcp_config':\n      if (!configObj.project_id) {\n        errors.push('GCP Project ID is required');\n      }\n      if (!configObj.service_account_key) {\n        errors.push('GCP Service Account Key is required');\n      }\n      break;\n  }\n  \n  return { errors, warnings };\n};\n\n// Validate all configurations\nconst validationResults = {\n  youtube: validateConfig(config.youtube_config, 'youtube_config'),\n  ai_services: validateConfig(config.ai_services_config, 'ai_services_config'),\n  media_services: validateConfig(config.media_services_config, 'media_services_config'),\n  notifications: validateConfig(config.notification_config, 'notification_config'),\n  gcp: validateConfig(config.gcp_config, 'gcp_config')\n};\n\n// Collect all errors and warnings\nconst allErrors = [];\nconst allWarnings = [];\n\nObject.entries(validationResults).forEach(([service, result]) => {\n  allErrors.push(...result.errors.map(error => `${service}: ${error}`));\n  allWarnings.push(...result.warnings.map(warning => `${service}: ${warning}`));\n});\n\n// Determine configuration status\nlet status = 'healthy';\nlet statusMessage = 'All configurations are valid';\n\nif (allErrors.length > 0) {\n  status = 'error';\n  statusMessage = `Configuration errors detected: ${allErrors.join(', ')}`;\n} else if (allWarnings.length > 0) {\n  status = 'warning';\n  statusMessage = `Configuration warnings: ${allWarnings.join(', ')}`;\n}\n\n// Create service status summary\nconst serviceStatus = {\n  youtube: {\n    enabled: validateApiKey(config.youtube_config.api_key) && config.youtube_config.client_id,\n    oauth_configured: !!(config.youtube_config.client_id && config.youtube_config.client_secret),\n    channel_linked: !!config.youtube_config.channel_id\n  },\n  ai_services: {\n    google: validateApiKey(config.ai_services_config.google?.api_key),\n    elevenlabs: validateApiKey(config.ai_services_config.elevenlabs?.api_key),\n    huggingface: validateApiKey(config.ai_services_config.huggingface?.token),\n    json2video: validateApiKey(config.ai_services_config.json2video?.api_key)\n  },\n  media_services: {\n    pixabay: validateApiKey(config.media_services_config.pixabay?.api_key),\n    bitly: validateApiKey(config.media_services_config.bitly?.access_token)\n  },\n  notifications: {\n    discord: validateUrl(config.notification_config.discord?.webhook_url),\n    telegram: !!(config.notification_config.telegram?.bot_token && config.notification_config.telegram?.chat_id)\n  },\n  gcp: {\n    project_configured: !!config.gcp_config.project_id,\n    service_account_configured: !!config.gcp_config.service_account_key,\n    secret_manager_enabled: config.gcp_config.secret_manager?.enabled\n  }\n};\n\n// Calculate overall health score\nconst totalChecks = Object.values(serviceStatus).reduce((total, service) => {\n  return total + Object.keys(service).length;\n}, 0);\n\nconst passedChecks = Object.values(serviceStatus).reduce((total, service) => {\n  return total + Object.values(service).filter(Boolean).length;\n}, 0);\n\nconst healthScore = Math.round((passedChecks / totalChecks) * 100);\n\nreturn {\n  json: {\n    // Configuration data\n    ...config,\n    \n    // Validation results\n    validation: {\n      status: status,\n      message: statusMessage,\n      errors: allErrors,\n      warnings: allWarnings,\n      health_score: healthScore\n    },\n    \n    // Service status\n    service_status: serviceStatus,\n    \n    // Metadata\n    config_version: '1.0.0',\n    validated_at: new Date().toISOString(),\n    environment: process.env.NODE_ENV || 'production'\n  }\n};"
+      },
+      "id": "validate-config",
+      "name": "Validate Configuration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 390]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "health-check",
+              "leftValue": "={{ $json.validation.health_score }}",
+              "rightValue": 80,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-config-health",
+      "name": "Check Configuration Health",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 390]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.gcp_config.cloud_functions.notification_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"type\": \"config_validation\",\n  \"status\": \"{{ $json.validation.status }}\",\n  \"message\": \"{{ $json.validation.message }}\",\n  \"health_score\": {{ $json.validation.health_score }},\n  \"errors\": {{ JSON.stringify($json.validation.errors) }},\n  \"warnings\": {{ JSON.stringify($json.validation.warnings) }},\n  \"service_status\": {{ JSON.stringify($json.service_status) }},\n  \"timestamp\": \"{{ $json.validated_at }}\"\n}",
+        "options": {}
+      },
+      "id": "send-health-alert",
+      "name": "Send Health Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 480]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.notification_config.discord.webhook_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"✅ Configuration Health Check\",\n      \"description\": \"System configuration is healthy and operational\",\n      \"color\": {{ $json.notification_config.discord.embed_colors.success }},\n      \"fields\": [\n        {\n          \"name\": \"🏥 Health Score\",\n          \"value\": \"{{ $json.validation.health_score }}%\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"📊 Status\",\n          \"value\": \"{{ $json.validation.status }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"🔧 Services\",\n          \"value\": \"YouTube: {{ $json.service_status.youtube.enabled ? '✅' : '❌' }}\\nAI: {{ ($json.service_status.ai_services.openai || $json.service_status.ai_services.anthropic) ? '✅' : '❌' }}\\nNotifications: {{ ($json.service_status.notifications.discord || $json.service_status.notifications.telegram) ? '✅' : '❌' }}\\nGCP: {{ $json.service_status.gcp.project_configured ? '✅' : '❌' }}\",\n          \"inline\": true\n        }\n      ],\n      \"timestamp\": \"{{ $json.validated_at }}\",\n      \"footer\": {\n        \"text\": \"AI Video Renderer - Global Config\"\n      }\n    }\n  ],\n  \"username\": \"{{ $json.notification_config.discord.username }}\",\n  \"avatar_url\": \"{{ $json.notification_config.discord.avatar_url }}\"\n}",
+        "options": {}
+      },
+      "id": "send-success-notification",
+      "name": "Send Success Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"configuration\": {\n    \"health_score\": {{ $json.validation.health_score }},\n    \"status\": \"{{ $json.validation.status }}\",\n    \"message\": \"{{ $json.validation.message }}\",\n    \"version\": \"{{ $json.config_version }}\",\n    \"environment\": \"{{ $json.environment }}\"\n  },\n  \"services\": {{ JSON.stringify($json.service_status) }},\n  \"validation\": {\n    \"errors\": {{ JSON.stringify($json.validation.errors) }},\n    \"warnings\": {{ JSON.stringify($json.validation.warnings) }}\n  },\n  \"last_updated\": \"{{ $json.last_updated }}\",\n  \"validated_at\": \"{{ $json.validated_at }}\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 390]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Configuration Webhook": {
+      "main": [
+        [
+          {
+            "node": "Load Global Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config Refresh Schedule": {
+      "main": [
+        [
+          {
+            "node": "Load Global Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Global Configuration": {
+      "main": [
+        [
+          {
+            "node": "Validate Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Configuration": {
+      "main": [
+        [
+          {
+            "node": "Check Configuration Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Configuration Health": {
+      "main": [
+        [
+          {
+            "node": "Send Success Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Health Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Health Alert": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Success Notification": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ai-video-renderer"
+  },
+  "id": "global-config-subflow",
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "configuration",
+      "name": "Configuration"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "system",
+      "name": "System"
+    }
+  ]
+}

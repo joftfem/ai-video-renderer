@@ -1,0 +1,456 @@
+{
+  "name": "YouTube Video Upload with Notifications",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily Upload Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "video-upload-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Manual Upload Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 480],
+      "webhookId": "video-upload-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-check",
+              "leftValue": "={{ $json.trigger_type || 'schedule' }}",
+              "rightValue": "manual",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "trigger-router",
+      "name": "Route Trigger Type",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 390]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "video-title",
+              "name": "video_title",
+              "value": "={{ $json.title || 'AI Generated Video - ' + new Date().toISOString().split('T')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "video-description",
+              "name": "video_description",
+              "value": "{{ $json.description || 'Automatically generated video content using AI tools. Subscribe for more!\n\n#AI #Automation #YouTube' }}",
+              "type": "string"
+            },
+            {
+              "id": "video-tags",
+              "name": "video_tags",
+              "value": "={{ $json.tags || ['AI', 'automation', 'technology', 'youtube'] }}",
+              "type": "array"
+            },
+            {
+              "id": "video-category",
+              "name": "video_category",
+              "value": "={{ $json.category || '28' }}",
+              "type": "string"
+            },
+            {
+              "id": "video-privacy",
+              "name": "video_privacy",
+              "value": "={{ $json.privacy || 'public' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-metadata",
+      "name": "Prepare Video Metadata",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [680, 390]
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "upload",
+        "title": "={{ $json.video_title }}",
+        "categoryId": "={{ $env.YOUTUBE_DEFAULT_CATEGORY || $json.video_category }}",
+        "description": "={{ $json.video_description }}",
+        "tags": "={{ $json.video_tags.join(',') }}",
+        "privacyStatus": "={{ $env.YOUTUBE_DEFAULT_PRIVACY || $json.video_privacy }}",
+        "binaryData": true,
+        "binaryPropertyName": "video_file"
+      },
+      "id": "youtube-upload",
+      "name": "Upload to YouTube",
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [900, 390],
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "youtube-oauth",
+          "name": "YouTube OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "video-id",
+              "name": "video_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "video-url",
+              "name": "video_url",
+              "value": "=https://www.youtube.com/watch?v={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "upload-time",
+              "name": "upload_time",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            },
+            {
+              "id": "video-title-final",
+              "name": "final_title",
+              "value": "={{ $json.snippet.title }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-video-info",
+      "name": "Extract Video Info",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [1120, 390]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('webhook-trigger').item.json.discord_webhook || $env.DISCORD_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"✅ Video Uploaded Successfully!\",\n      \"description\": \"New video has been uploaded to YouTube\",\n      \"color\": 65280,\n      \"fields\": [\n        {\n          \"name\": \"🎬 Title\",\n          \"value\": \"{{ $json.final_title }}\",\n          \"inline\": false\n        },\n        {\n          \"name\": \"🔗 URL\",\n          \"value\": \"{{ $json.video_url }}\",\n          \"inline\": false\n        },\n        {\n          \"name\": \"📅 Upload Time\",\n          \"value\": \"{{ $json.upload_time }}\",\n          \"inline\": true\n        }\n      ],\n      \"timestamp\": \"{{ new Date().toISOString() }}\",\n      \"footer\": {\n        \"text\": \"AI Video Renderer\"\n      }\n    }\n  ],\n  \"username\": \"AI Video Renderer\",\n  \"avatar_url\": \"https://cdn-icons-png.flaticon.com/512/1384/1384060.png\"\n}",
+        "options": {}
+      },
+      "id": "discord-notification",
+      "name": "Send Discord Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"{{ $env.TELEGRAM_CHAT_ID }}\",\n  \"text\": \"✅ *Video Uploaded Successfully!*\\n\\n🎬 *Title:* {{ $json.final_title }}\\n🔗 *URL:* {{ $json.video_url }}\\n📅 *Upload Time:* {{ $json.upload_time }}\\n\\n🤖 AI Video Renderer\",\n  \"parse_mode\": \"Markdown\",\n  \"disable_web_page_preview\": false\n}",
+        "options": {}
+      },
+      "id": "telegram-notification",
+      "name": "Send Telegram Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1340, 480]
+    },
+    {
+      "parameters": {
+        "url": "=https://api-ssl.bitly.com/v4/shorten",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.BITLY_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"long_url\": \"{{ $json.video_url }}\",\n  \"domain\": \"bit.ly\"\n}",
+        "options": {}
+      },
+      "id": "create-short-url",
+      "name": "Create Short URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 580],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bitly-auth",
+          "name": "Bitly API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "short-url",
+              "name": "short_url",
+              "value": "={{ $json.link }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-short-url",
+      "name": "Extract Short URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [1340, 580]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "error-message",
+              "name": "error_message",
+              "value": "={{ $json.message || 'Unknown error occurred' }}",
+              "type": "string"
+            },
+            {
+              "id": "error-time",
+              "name": "error_time",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-error-info",
+      "name": "Prepare Error Info",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [900, 580]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"❌ Video Upload Failed\",\n      \"description\": \"An error occurred during video upload\",\n      \"color\": 16711680,\n      \"fields\": [\n        {\n          \"name\": \"🚨 Error Message\",\n          \"value\": \"{{ $json.error_message }}\",\n          \"inline\": false\n        },\n        {\n          \"name\": \"📅 Error Time\",\n          \"value\": \"{{ $json.error_time }}\",\n          \"inline\": true\n        }\n      ],\n      \"timestamp\": \"{{ new Date().toISOString() }}\",\n      \"footer\": {\n        \"text\": \"AI Video Renderer - Error Alert\"\n      }\n    }\n  ],\n  \"username\": \"AI Video Renderer\",\n  \"avatar_url\": \"https://cdn-icons-png.flaticon.com/512/1384/1384060.png\"\n}",
+        "options": {}
+      },
+      "id": "error-discord-notification",
+      "name": "Send Error Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 720]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"video_id\": \"{{ $json.video_id }}\",\n  \"video_url\": \"{{ $json.video_url }}\",\n  \"short_url\": \"{{ $json.short_url }}\",\n  \"upload_time\": \"{{ $json.upload_time }}\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1560, 390]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Upload Schedule": {
+      "main": [
+        [
+          {
+            "node": "Route Trigger Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Upload Webhook": {
+      "main": [
+        [
+          {
+            "node": "Route Trigger Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Trigger Type": {
+      "main": [
+        [
+          {
+            "node": "Prepare Video Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Video Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Video Metadata": {
+      "main": [
+        [
+          {
+            "node": "Upload to YouTube",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to YouTube": {
+      "main": [
+        [
+          {
+            "node": "Extract Video Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Prepare Error Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Video Info": {
+      "main": [
+        [
+          {
+            "node": "Send Discord Notification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Telegram Notification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Short URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Short URL": {
+      "main": [
+        [
+          {
+            "node": "Extract Short URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Short URL": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Error Info": {
+      "main": [
+        [
+          {
+            "node": "Send Error Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ai-video-renderer"
+  },
+  "id": "youtube-upload-workflow",
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "youtube",
+      "name": "YouTube"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "automation",
+      "name": "Automation"
+    }
+  ]
+}

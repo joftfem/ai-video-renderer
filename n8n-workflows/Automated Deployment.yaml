@@ -1,0 +1,12 @@
+# .github/workflows/deploy.yml
+name: Deploy to GCP
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Deploy to Cloud Run
+        run: gcloud run deploy ai-video-renderer

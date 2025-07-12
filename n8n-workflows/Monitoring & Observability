@@ -1,0 +1,8 @@
+# Add structured logging to Python scripts
+import structlog
+logger = structlog.get_logger()
+
+# Add health check endpoints
+@app.route('/health')
+def health_check():
+    return {'status': 'healthy', 'timestamp': datetime.utcnow()}

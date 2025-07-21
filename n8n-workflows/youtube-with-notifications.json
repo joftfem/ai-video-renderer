@@ -3,6 +3,71 @@
   "nodes": [
     {
       "parameters": {
+        "url": "http://localhost:5678/webhook/global-config",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call-global-config",
+      "name": "Call Global Config",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "validation-check",
+              "leftValue": "={{ $json.validation.status }}",
+              "rightValue": "healthy",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-config-health",
+      "name": "Check Config Health",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Call Global Config').item.json.notification_config.discord.webhook_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": \"🚨 **Configuration Error in YouTube Upload**\\n\\n**Error:** {{ $('Call Global Config').item.json.validation.message }}\\n\\n**Time:** {{ new Date().toISOString() }}\\n\\n**Workflow:** YouTube Video Upload with Notifications\"\n}",
+        "options": {}
+      },
+      "id": "config-error-notification",
+      "name": "Config Error Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        600,
+        400
+      ]
+    },
+    {
+      "parameters": {
         "rule": {
           "interval": [
             {
@@ -110,10 +175,10 @@
         "resource": "video",
         "operation": "upload",
         "title": "={{ $json.video_title }}",
-        "categoryId": "={{ $env.YOUTUBE_DEFAULT_CATEGORY || $json.video_category }}",
+        "categoryId": "={{ $('Call Global Config').item.json.youtube_config.default_category || $json.video_category }}",
         "description": "={{ $json.video_description }}",
         "tags": "={{ $json.video_tags.join(',') }}",
-        "privacyStatus": "={{ $env.YOUTUBE_DEFAULT_PRIVACY || $json.video_privacy }}",
+        "privacyStatus": "={{ $('Call Global Config').item.json.youtube_config.default_privacy || $json.video_privacy }}",
         "binaryData": true,
         "binaryPropertyName": "video_file"
       },
@@ -169,7 +234,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $('webhook-trigger').item.json.discord_webhook || $env.DISCORD_WEBHOOK_URL }}",
+        "url": "={{ $('Call Global Config').item.json.notification_config.discord.webhook_url }}",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"✅ Video Uploaded Successfully!\",\n      \"description\": \"New video has been uploaded to YouTube\",\n      \"color\": 65280,\n      \"fields\": [\n        {\n          \"name\": \"🎬 Title\",\n          \"value\": \"{{ $json.final_title }}\",\n          \"inline\": false\n        },\n        {\n          \"name\": \"🔗 URL\",\n          \"value\": \"{{ $json.video_url }}\",\n          \"inline\": false\n        },\n        {\n          \"name\": \"📅 Upload Time\",\n          \"value\": \"{{ $json.upload_time }}\",\n          \"inline\": true\n        }\n      ],\n      \"timestamp\": \"{{ new Date().toISOString() }}\",\n      \"footer\": {\n        \"text\": \"AI Video Renderer\"\n      }\n    }\n  ],\n  \"username\": \"AI Video Renderer\",\n  \"avatar_url\": \"https://cdn-icons-png.flaticon.com/512/1384/1384060.png\"\n}",
@@ -183,10 +248,10 @@
     },
     {
       "parameters": {
-        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "url": "=https://api.telegram.org/bot{{ $('Call Global Config').item.json.notification_config.telegram.bot_token }}/sendMessage",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"chat_id\": \"{{ $env.TELEGRAM_CHAT_ID }}\",\n  \"text\": \"✅ *Video Uploaded Successfully!*\\n\\n🎬 *Title:* {{ $json.final_title }}\\n🔗 *URL:* {{ $json.video_url }}\\n📅 *Upload Time:* {{ $json.upload_time }}\\n\\n🤖 AI Video Renderer\",\n  \"parse_mode\": \"Markdown\",\n  \"disable_web_page_preview\": false\n}",
+        "jsonBody": "={\n  \"chat_id\": \"{{ $('Call Global Config').item.json.notification_config.telegram.chat_id }}\",\n  \"text\": \"✅ *Video Uploaded Successfully!*\\n\\n🎬 *Title:* {{ $json.final_title }}\\n🔗 *URL:* {{ $json.video_url }}\\n📅 *Upload Time:* {{ $json.upload_time }}\\n\\n🤖 AI Video Renderer\",\n  \"parse_mode\": \"Markdown\",\n  \"disable_web_page_preview\": false\n}",
         "options": {}
       },
       "id": "telegram-notification",
@@ -203,7 +268,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "Bearer {{ $env.BITLY_TOKEN }}"
+              "value": "Bearer {{ $('Call Global Config').item.json.media_services_config.bitly.access_token }}"
             },
             {
               "name": "Content-Type",
@@ -276,7 +341,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "url": "={{ $('Call Global Config').item.json.notification_config.discord.webhook_url }}",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"❌ Video Upload Failed\",\n      \"description\": \"An error occurred during video upload\",\n      \"color\": 16711680,\n      \"fields\": [\n        {\n          \"name\": \"🚨 Error Message\",\n          \"value\": \"{{ $json.error_message }}\",\n          \"inline\": false\n        },\n        {\n          \"name\": \"📅 Error Time\",\n          \"value\": \"{{ $json.error_time }}\",\n          \"inline\": true\n        }\n      ],\n      \"timestamp\": \"{{ new Date().toISOString() }}\",\n      \"footer\": {\n        \"text\": \"AI Video Renderer - Error Alert\"\n      }\n    }\n  ],\n  \"username\": \"AI Video Renderer\",\n  \"avatar_url\": \"https://cdn-icons-png.flaticon.com/512/1384/1384060.png\"\n}",
@@ -303,6 +368,40 @@
   ],
   "pinData": {},
   "connections": {
+    "Call Global Config": {
+      "main": [
+        [
+          {
+            "node": "Check Config Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Config Health": {
+      "main": [
+        [
+          {
+            "node": "Daily Upload Schedule",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Manual Upload Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Config Error Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Daily Upload Schedule": {
       "main": [
         [

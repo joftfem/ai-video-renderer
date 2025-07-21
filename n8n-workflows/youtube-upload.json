@@ -1,0 +1,515 @@
+{
+  "name": "YouTube Upload Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "youtube-upload",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "youtube-upload-webhook",
+      "name": "YouTube Upload Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "youtube-upload-webhook"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5678/webhook/global-config",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "load-global-configuration",
+      "name": "Load Global Configuration",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "config-health-check",
+              "leftValue": "={{ $json.validation.status }}",
+              "rightValue": "healthy",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-upload-readiness",
+      "name": "Check Upload Readiness",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Load Global Configuration').item.json.notifications_config.discord.webhook_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"🚨 YouTube Upload Failed\",\n      \"description\": \"Configuration health check failed\",\n      \"color\": 15158332,\n      \"fields\": [\n        {\n          \"name\": \"Error\",\n          \"value\": \"{{ $('Load Global Configuration').item.json.validation.message }}\",\n          \"inline\": false\n        },\n        {\n          \"name\": \"Timestamp\",\n          \"value\": \"{{ new Date().toISOString() }}\",\n          \"inline\": true\n        }\n      ],\n      \"footer\": {\n        \"text\": \"YouTube Upload Automation\"\n      }\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "send-error-notification",
+      "name": "Send Error Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "video-title",
+              "name": "video_title",
+              "value": "={{ $('YouTube Upload Webhook').item.json.title || 'AI Generated Video - ' + new Date().toISOString().split('T')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "video-description",
+              "name": "video_description",
+              "value": "={{ $('YouTube Upload Webhook').item.json.description || 'Automatically generated video content using AI tools.\\n\\nSubscribe for more amazing content!\\n\\n#AI #Automation #YouTube #Technology' }}",
+              "type": "string"
+            },
+            {
+              "id": "video-tags",
+              "name": "video_tags",
+              "value": "={{ $('YouTube Upload Webhook').item.json.tags || ['AI', 'automation', 'technology', 'youtube', 'artificial intelligence'] }}",
+              "type": "array"
+            },
+            {
+              "id": "video-category",
+              "name": "video_category",
+              "value": "={{ $('YouTube Upload Webhook').item.json.category || $('Load Global Configuration').item.json.youtube_config.default_category || '28' }}",
+              "type": "string"
+            },
+            {
+              "id": "video-privacy",
+              "name": "video_privacy",
+              "value": "={{ $('YouTube Upload Webhook').item.json.privacy || $('Load Global Configuration').item.json.youtube_config.default_privacy || 'private' }}",
+              "type": "string"
+            },
+            {
+              "id": "video-file-path",
+              "name": "video_file_path",
+              "value": "={{ $('YouTube Upload Webhook').item.json.video_path || '/Users/joft/Downloads/Muliti Niche automation/ai-video-renderer/output/' }}",
+              "type": "string"
+            },
+            {
+              "id": "upload-timestamp",
+              "name": "upload_timestamp",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-youtube-data",
+      "name": "Prepare YouTube Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "video",
+        "operation": "upload",
+        "title": "={{ $json.video_title }}",
+        "categoryId": "={{ $json.video_category }}",
+        "description": "={{ $json.video_description }}",
+        "tags": "={{ $json.video_tags.join(',') }}",
+        "privacyStatus": "={{ $json.video_privacy }}",
+        "binaryData": true,
+        "binaryPropertyName": "video_file"
+      },
+      "id": "get-youtube-access-token",
+      "name": "Get YouTube Access Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 200],
+      "parameters": {
+        "url": "https://oauth2.googleapis.com/token",
+        "sendBody": true,
+        "specifyBody": "form",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "={{ $('Load Global Configuration').item.json.youtube_config.client_id }}"
+            },
+            {
+              "name": "client_secret",
+              "value": "={{ $('Load Global Configuration').item.json.youtube_config.client_secret }}"
+            },
+            {
+              "name": "refresh_token",
+              "value": "={{ $('Load Global Configuration').item.json.youtube_config.refresh_token }}"
+            },
+            {
+              "name": "grant_type",
+              "value": "refresh_token"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare video upload configuration\n// Note: This node expects video file to be provided via webhook or previous node\n\ntry {\n  const inputData = $input.first();\n  const json = inputData.json;\n  \n  // Check if video file is provided in binary data from previous node\n  if (inputData.binary && inputData.binary.video_file) {\n    const videoFile = inputData.binary.video_file;\n    \n    return {\n      json: {\n        ...json,\n        video_file_name: videoFile.fileName || 'video.mp4',\n        video_file_path: videoFile.fileName || 'video.mp4',\n        video_file_size: videoFile.data ? videoFile.data.length : 0,\n        video_ready: true,\n        mime_type: videoFile.mimeType || 'video/mp4'\n      },\n      binary: {\n        video_file: videoFile\n      }\n    };\n  }\n  \n  // If no binary data, check if video_file_path is provided in JSON\n  if (json.video_file_path) {\n    return {\n      json: {\n        ...json,\n        video_file_name: json.video_file_path.split('/').pop(),\n        video_ready: true,\n        message: 'Video file path provided, ready for upload'\n      }\n    };\n  }\n  \n  // If no video file provided, return error\n  throw new Error('No video file provided. Please ensure video file is uploaded via webhook or previous node.');\n  \n} catch (error) {\n  return {\n    json: {\n      ...($input.first().json),\n      error: error.message,\n      video_ready: false,\n      troubleshooting: {\n        message: 'Video file not found',\n        solutions: [\n          'Ensure video file is uploaded via webhook',\n          'Check that previous node provides binary video data',\n          'Verify video_file_path is correctly set in input JSON'\n        ]\n      }\n    }\n  };\n}"
+      },
+      "id": "prepare-video-upload",
+      "name": "Prepare Video Upload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "upload",
+        "title": "={{ $json.video_title }}",
+        "categoryId": "={{ $json.video_category }}",
+        "description": "={{ $json.video_description }}",
+        "tags": "={{ $json.video_tags.join(',') }}",
+        "privacyStatus": "={{ $json.video_privacy }}",
+        "binaryData": true,
+        "binaryPropertyName": "video_file"
+      },
+      "id": "upload-to-youtube",
+      "name": "Upload to YouTube",
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [1340, 300],
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "youtube-oauth",
+          "name": "YouTube OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "video-id",
+              "name": "video_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "video-url",
+              "name": "video_url",
+              "value": "=https://www.youtube.com/watch?v={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "upload-status",
+              "name": "upload_status",
+              "value": "success",
+              "type": "string"
+            },
+            {
+              "id": "upload-time",
+              "name": "upload_time",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            },
+            {
+              "id": "video-title-final",
+              "name": "video_title_final",
+              "value": "={{ $json.snippet.title }}",
+              "type": "string"
+            },
+            {
+              "id": "video-privacy-final",
+              "name": "video_privacy_final",
+              "value": "={{ $json.status.privacyStatus }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-video-info",
+      "name": "Extract Video Info",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Load Global Configuration').item.json.notifications_config.discord.webhook_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"🎉 YouTube Upload Successful!\",\n      \"description\": \"Video has been successfully uploaded to YouTube\",\n      \"color\": 3447003,\n      \"fields\": [\n        {\n          \"name\": \"📺 Video Title\",\n          \"value\": \"{{ $json.video_title_final }}\",\n          \"inline\": false\n        },\n        {\n          \"name\": \"🔗 Video URL\",\n          \"value\": \"[Watch Video]({{ $json.video_url }})\",\n          \"inline\": false\n        },\n        {\n          \"name\": \"🔒 Privacy Status\",\n          \"value\": \"{{ $json.video_privacy_final }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"📅 Upload Time\",\n          \"value\": \"{{ $json.upload_time }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"🆔 Video ID\",\n          \"value\": \"{{ $json.video_id }}\",\n          \"inline\": true\n        }\n      ],\n      \"thumbnail\": {\n        \"url\": \"https://img.youtube.com/vi/{{ $json.video_id }}/maxresdefault.jpg\"\n      },\n      \"footer\": {\n        \"text\": \"YouTube Upload Automation\"\n      },\n      \"timestamp\": \"{{ $json.upload_time }}\"\n    }\n  ],\n  \"username\": \"YouTube Bot\",\n  \"avatar_url\": \"https://cdn-icons-png.flaticon.com/512/1384/1384060.png\"\n}",
+        "options": {}
+      },
+      "id": "send-discord-notification",
+      "name": "Send Discord Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1780, 200]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.bitly.com/v4/shorten",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Load Global Configuration').item.json.media_services_config.bitly.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"long_url\": \"{{ $json.video_url }}\",\n  \"domain\": \"bit.ly\",\n  \"title\": \"{{ $json.video_title_final }}\"\n}",
+        "options": {}
+      },
+      "id": "create-short-url",
+      "name": "Create Short URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "short-url",
+              "name": "short_url",
+              "value": "={{ $json.link }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-short-url",
+      "name": "Extract Short URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"message\": \"Video uploaded successfully to YouTube\",\n  \"data\": {\n    \"video_id\": \"{{ $('Extract Video Info').item.json.video_id }}\",\n    \"video_url\": \"{{ $('Extract Video Info').item.json.video_url }}\",\n    \"short_url\": \"{{ $json.short_url || $('Extract Video Info').item.json.video_url }}\",\n    \"title\": \"{{ $('Extract Video Info').item.json.video_title_final }}\",\n    \"privacy\": \"{{ $('Extract Video Info').item.json.video_privacy_final }}\",\n    \"upload_time\": \"{{ $('Extract Video Info').item.json.upload_time }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Load Global Configuration').item.json.notifications_config.discord.webhook_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"❌ YouTube Upload Error\",\n      \"description\": \"Failed to upload video to YouTube\",\n      \"color\": 15158332,\n      \"fields\": [\n        {\n          \"name\": \"Error Details\",\n          \"value\": \"{{ $json.error || 'Unknown error occurred during upload' }}\",\n          \"inline\": false\n        },\n        {\n          \"name\": \"Video File\",\n          \"value\": \"{{ $json.video_file_name || 'Unknown' }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"Timestamp\",\n          \"value\": \"{{ new Date().toISOString() }}\",\n          \"inline\": true\n        }\n      ],\n      \"footer\": {\n        \"text\": \"YouTube Upload Automation - Error Handler\"\n      }\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "send-error-notification-upload",
+      "name": "Send Error Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1560, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"error\",\n  \"message\": \"Failed to upload video to YouTube\",\n  \"error\": \"{{ $json.error || 'Upload process failed' }}\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "id": "error-webhook-response",
+      "name": "Error Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1780, 500]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "YouTube Upload Webhook": {
+      "main": [
+        [
+          {
+            "node": "Load Global Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Global Configuration": {
+      "main": [
+        [
+          {
+            "node": "Check Upload Readiness",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Upload Readiness": {
+      "main": [
+        [
+          {
+            "node": "Prepare YouTube Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare YouTube Data": {
+      "main": [
+        [
+          {
+            "node": "Prepare Video Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Video Upload": {
+      "main": [
+        [
+          {
+            "node": "Upload to YouTube",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Error Notification Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to YouTube": {
+      "main": [
+        [
+          {
+            "node": "Extract Video Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Video Info": {
+      "main": [
+        [
+          {
+            "node": "Send Discord Notification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Short URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Short URL": {
+      "main": [
+        [
+          {
+            "node": "Extract Short URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Short URL": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Error Notification Upload": {
+      "main": [
+        [
+          {
+            "node": "Error Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ai-video-renderer"
+  },
+  "id": "youtube-upload-automation",
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "youtube",
+      "name": "YouTube"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "automation",
+      "name": "Automation"
+    }
+  ]
+}

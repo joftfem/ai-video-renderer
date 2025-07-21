@@ -56,6 +56,10 @@ logs/
 *.seed
 *.pid.lock
 
+# Generated thumbnails
+/thumbnails/*
+!thumbnails/.gitkeep
+
 # Docker volumes and data
 docker-data/
 volumes/
@@ -205,6 +209,10 @@ grafana_data/
 workflow-exports/
 temp-workflows/
 
-# Output directory (generated videos and content)
+# Output directories for video pipeline
 output/
 /output
+/staging
+/enhanced
+/final
+/logs

@@ -3,6 +3,71 @@
   "nodes": [
     {
       "parameters": {
+        "url": "http://localhost:5678/webhook/global-config",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call-global-config",
+      "name": "Call Global Config",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "validation-check",
+              "leftValue": "={{ $json.validation.status }}",
+              "rightValue": "healthy",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-config-health",
+      "name": "Check Config Health",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Call Global Config').item.json.notification_config.discord.webhook_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": \"🚨 **Configuration Error in Revenue Tracking**\\n\\n**Error:** {{ $('Call Global Config').item.json.validation.message }}\\n\\n**Time:** {{ new Date().toISOString() }}\\n\\n**Workflow:** $75000 Revenue Tracking Subflow\"\n}",
+        "options": {}
+      },
+      "id": "config-error-notification",
+      "name": "Config Error Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        600,
+        400
+      ]
+    },
+    {
+      "parameters": {
         "httpMethod": "POST",
         "path": "revenue-tracking",
         "responseMode": "responseNode",
@@ -12,7 +77,10 @@
       "name": "Revenue Data Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [240, 300],
+      "position": [
+        240,
+        300
+      ],
       "webhookId": "revenue-tracking-webhook"
     },
     {
@@ -30,7 +98,10 @@
       "name": "Weekly Revenue Check",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.1,
-      "position": [240, 480]
+      "position": [
+        240,
+        480
+      ]
     },
     {
       "parameters": {
@@ -68,17 +139,20 @@
       "name": "Set Tracking Variables",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.3,
-      "position": [460, 390]
+      "position": [
+        460,
+        390
+      ]
     },
     {
       "parameters": {
-        "url": "=https://www.googleapis.com/youtube/analytics/v2/reports",
+        "url": "=https://youtubeanalytics.googleapis.com/v2/reports",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
-              "value": "Bearer {{ $env.YOUTUBE_ACCESS_TOKEN }}"
+              "value": "Bearer {{ $('Call Global Config').item.json.youtube_config.access_token }}"
             }
           ]
         },
@@ -87,7 +161,7 @@
           "parameters": [
             {
               "name": "ids",
-              "value": "channel=={{ $env.YOUTUBE_CHANNEL_ID }}"
+              "value": "channel=={{ $('Call Global Config').item.json.youtube_config.channel_id }}"
             },
             {
               "name": "startDate",
@@ -113,7 +187,10 @@
       "name": "Fetch YouTube Analytics",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [680, 390],
+      "position": [
+        680,
+        390
+      ],
       "credentials": {
         "youTubeOAuth2Api": {
           "id": "youtube-oauth",
@@ -129,7 +206,10 @@
       "name": "Calculate Revenue Metrics",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [900, 390]
+      "position": [
+        900,
+        390
+      ]
     },
     {
       "parameters": {
@@ -158,11 +238,14 @@
       "name": "Check Target Achievement",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1120, 390]
+      "position": [
+        1120,
+        390
+      ]
     },
     {
       "parameters": {
-        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "url": "={{ $('Call Global Config').item.json.notification_config.discord.webhook_url }}",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"🎉 $75,000 Revenue Target ACHIEVED!\",\n      \"description\": \"Congratulations! You've reached your monthly revenue goal!\",\n      \"color\": 65280,\n      \"fields\": [\n        {\n          \"name\": \"💰 Total Revenue\",\n          \"value\": \"{{ $json.formatted.total_revenue }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"🎯 Target\",\n          \"value\": \"{{ $json.formatted.target_revenue }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"📊 Progress\",\n          \"value\": \"{{ $json.progress_percentage }}%\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"👀 Total Views\",\n          \"value\": \"{{ $json.formatted.total_views }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"👥 New Subscribers\",\n          \"value\": \"{{ $json.formatted.total_subscribers }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"💵 RPM\",\n          \"value\": \"{{ $json.formatted.rpm }}\",\n          \"inline\": true\n        }\n      ],\n      \"timestamp\": \"{{ $json.calculated_at }}\",\n      \"footer\": {\n        \"text\": \"AI Video Renderer - Revenue Tracker\"\n      },\n      \"thumbnail\": {\n        \"url\": \"https://cdn-icons-png.flaticon.com/512/2936/2936719.png\"\n      }\n    }\n  ],\n  \"username\": \"Revenue Tracker\",\n  \"avatar_url\": \"https://cdn-icons-png.flaticon.com/512/2936/2936719.png\"\n}",
@@ -172,35 +255,44 @@
       "name": "Send Celebration Notification",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [1340, 300]
+      "position": [
+        1340,
+        300
+      ]
     },
     {
       "parameters": {
-        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "url": "={{ $('Call Global Config').item.json.notification_config.discord.webhook_url }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"{{ $json.status_emoji }} Revenue Progress Report\",\n      \"description\": \"{{ $json.status_message }}\",\n      \"color\": {{ $json.status === 'critical' ? 16711680 : ($json.status === 'behind_target' ? 16776960 : 3447003) }},\n      \"fields\": [\n        {\n          \"name\": \"💰 Current Revenue\",\n          \"value\": \"{{ $json.formatted.total_revenue }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"🎯 Target Revenue\",\n          \"value\": \"{{ $json.formatted.target_revenue }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"📊 Progress\",\n          \"value\": \"{{ $json.progress_percentage }}%\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"💸 Remaining\",\n          \"value\": \"{{ $json.formatted.remaining_revenue }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"📅 Days Left\",\n          \"value\": \"{{ $json.days_remaining }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"🎯 Daily Target\",\n          \"value\": \"{{ $json.formatted.daily_target_remaining }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"👀 Total Views\",\n          \"value\": \"{{ $json.formatted.total_views }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"👥 New Subscribers\",\n          \"value\": \"{{ $json.formatted.total_subscribers }}\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"💵 RPM\",\n          \"value\": \"{{ $json.formatted.rpm }}\",\n          \"inline\": true\n        }\n      ],\n      \"timestamp\": \"{{ $json.calculated_at }}\",\n      \"footer\": {\n        \"text\": \"AI Video Renderer - Revenue Tracker\"\n      }\n    }\n  ],\n  \"username\": \"Revenue Tracker\",\n  \"avatar_url\": \"https://cdn-icons-png.flaticon.com/512/2936/2936719.png\"\n}",
+        "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"{{ $json.status_emoji }}\" Revenue Progress Report\",\n      \"description\": \"{{ $json.status_message }}\"\",\n      \"color\": \"{{ $json.status === 'critical' ? 16711680 : ($json.status === 'behind_target' ? 16776960 : 3447003) }}\",\n      \"fields\": [\n        {\n          \"name\": \"💰 Current Revenue\",\n          \"value\": \"{{ $json.formatted.total_revenue }}\"\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"🎯 Target Revenue\",\n          \"value\": \"{{ $json.formatted.target_revenue }}\"\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"📊 Progress\",\n          \"value\": \"{{ $json.progress_percentage }}\"%\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"💸 Remaining\",\n          \"value\": \"{{ $json.formatted.remaining_revenue }}\"\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"📅 Days Left\",\n          \"value\": \"{{ $json.days_remaining }}\"\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"🎯 Daily Target\",\n          \"value\": \"{{ $json.formatted.daily_target_remaining }}\"\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"👀 Total Views\",\n          \"value\": \"{{ $json.formatted.total_views }}\"\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"👥 New Subscribers\",\n          \"value\": \"{{ $json.formatted.total_subscribers }}\"\",\n          \"inline\": true\n        },\n        {\n          \"name\": \"💵 RPM\",\n          \"value\": \"{{ $json.formatted.rpm }}\"\",\n          \"inline\": true\n        }\n      ],\n      \"timestamp\": \"{{ $json.calculated_at }}\"\",\n      \"footer\": {\n        \"text\": \"AI Video Renderer - Revenue Tracker\"\n      }\n    }\n  ],\n  \"username\": \"Revenue Tracker\",\n  \"avatar_url\": \"https://cdn-icons-png.flaticon.com/512/2936/2936719.png\"\n}",
         "options": {}
       },
       "id": "progress-notification",
       "name": "Send Progress Notification",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [1340, 480]
+      "position": [
+        1340,
+        480
+      ]
     },
     {
       "parameters": {
-        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "url": "=https://api.telegram.org/bot{{ $('Call Global Config').item.json.notification_config.telegram.bot_token }}/sendMessage",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"chat_id\": \"{{ $env.TELEGRAM_CHAT_ID }}\",\n  \"text\": \"{{ $json.status_emoji }} *Revenue Progress Report*\\n\\n💰 *Current:* {{ $json.formatted.total_revenue }}\\n🎯 *Target:* {{ $json.formatted.target_revenue }}\\n📊 *Progress:* {{ $json.progress_percentage }}%\\n💸 *Remaining:* {{ $json.formatted.remaining_revenue }}\\n📅 *Days Left:* {{ $json.days_remaining }}\\n🎯 *Daily Target:* {{ $json.formatted.daily_target_remaining }}\\n\\n📈 *Performance:*\\n👀 Views: {{ $json.formatted.total_views }}\\n👥 Subscribers: {{ $json.formatted.total_subscribers }}\\n💵 RPM: {{ $json.formatted.rpm }}\\n\\n{{ $json.status_message }}\\n\\n🤖 AI Video Renderer\",\n  \"parse_mode\": \"Markdown\",\n  \"disable_web_page_preview\": true\n}",
+        "jsonBody": "={\n  \"chat_id\": \"{{ $('Call Global Config').item.json.notification_config.telegram.chat_id }}\",\n  \"text\": \"🎯 *$75,000 Revenue Target Achieved!* 🎯\\n\\n💰 *Weekly Revenue:* ${{ $json.weeklyRevenue.toFixed(2) }}\\n📈 *Total Revenue:* ${{ $json.totalRevenue.toFixed(2) }}\\n🎥 *Views:* {{ $json.views.toLocaleString() }}\\n👥 *New Subscribers:* {{ $json.subscribersGained.toLocaleString() }}\\n\\n🏆 *Congratulations! You've reached your revenue milestone!*\\n\\n📊 *Progress:* {{ Math.round(($json.totalRevenue / 75000) * 100) }}% of target\\n⏰ *Achieved on:* {{ new Date().toLocaleDateString() }}\",\n  \"parse_mode\": \"Markdown\"\n}",
         "options": {}
       },
       "id": "telegram-progress",
       "name": "Send Telegram Progress",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [1560, 390]
+      "position": [
+        1560,
+        390
+      ]
     },
     {
       "parameters": {
@@ -212,11 +304,43 @@
       "name": "Webhook Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1780, 390]
+      "position": [
+        1780,
+        390
+      ]
     }
   ],
   "pinData": {},
   "connections": {
+    "Call Global Config": {
+      "main": [
+        [
+          {
+            "node": "Check Config Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Config Health": {
+      "main": [
+        [
+          {
+            "node": "Revenue Data Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Config Error Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Revenue Data Webhook": {
       "main": [
         [

@@ -1,12 +1,9 @@
-# My First Project
+# AI Video Renderer
 
 🚀 **AI Video Renderer** - Fully automated YouTube content creation using AI, GCP, and Dockerized n8n.
 
 ## 📋 Project Information
 
-- **Project Name**: My First Project
-- **Project ID**: `brave-hearth-464820-s2`
-- **Project Number**: `798807204191`
 - **Purpose**: Fully automated YouTube content creation using AI, Google Cloud Platform, and Dockerized n8n workflows
 
 ## 🎯 Overview
@@ -154,8 +151,8 @@ The system uses the following key environment variables:
 - `TELEGRAM_CHAT_ID`: Telegram chat ID
 
 #### Google Cloud
-- `GOOGLE_PROJECT_ID`: GCP project ID (brave-hearth-464820-s2)
-- `GOOGLE_PROJECT_NUMBER`: GCP project number (798807204191)
+- `GOOGLE_PROJECT_ID`: GCP project ID
+- `GOOGLE_PROJECT_NUMBER`: GCP project number
 - `GOOGLE_APPLICATION_CREDENTIALS`: Service account key path
 
 ## 🔧 n8n Workflows

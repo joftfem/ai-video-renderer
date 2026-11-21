@@ -1,4 +1,5 @@
 #!/bin/bash
+: "${N8N_API_KEY:?Set N8N_API_KEY in your environment (n8n Settings > n8n API)}"
 
 # Import n8n workflows and activate them
 # This script imports the Global Configuration and YouTube Upload workflows
@@ -67,7 +68,7 @@ print(json.dumps(data))
     # Import workflow via n8n API
     local response=$(curl -s -X POST \
         -H "Content-Type: application/json" \
-        -H "X-N8N-API-KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NmFlZjEwMy1mOGZjLTQwNTQtYjNkMS01ZTg2Mjg5YWVkYjkiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzUzMDg3NzY1fQ.MkrIY-B7e0k7B3T-gULBk3d_UmvjzsUmNkgKfto1dxw" \
+        -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
         -d "$cleaned_json" \
         "${N8N_URL}/api/v1/workflows" 2>/dev/null)
     
@@ -93,7 +94,7 @@ activate_workflow() {
     echo -e "${YELLOW}🔄 Activating workflow: ${workflow_name}${NC}"
     
     local activate_response=$(curl -s -X POST "${N8N_URL}/api/v1/workflows/${workflow_id}/activate" \
-        -H "X-N8N-API-KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NmFlZjEwMy1mOGZjLTQwNTQtYjNkMS01ZTg2Mjg5YWVkYjkiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzUzMDg3NzY1fQ.MkrIY-B7e0k7B3T-gULBk3d_UmvjzsUmNkgKfto1dxw" \
+        -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
         -H "Content-Type: application/json")
     
     if echo "$activate_response" | grep -q '"active":true'; then
@@ -110,7 +111,7 @@ activate_workflow() {
 list_workflows() {
     echo -e "${YELLOW}📋 Listing existing workflows...${NC}"
     
-    local response=$(curl -s -H "X-N8N-API-KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NmFlZjEwMy1mOGZjLTQwNTQtYjNkMS01ZTg2Mjg5YWVkYjkiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzUzMDg3NzY1fQ.MkrIY-B7e0k7B3T-gULBk3d_UmvjzsUmNkgKfto1dxw" "${N8N_URL}/api/v1/workflows" 2>/dev/null)
+    local response=$(curl -s -H "X-N8N-API-KEY: ${N8N_API_KEY}" "${N8N_URL}/api/v1/workflows" 2>/dev/null)
     
     if echo "$response" | grep -q '"data"'; then
         echo "$response" | python3 -c "
@@ -145,7 +146,7 @@ for wf in workflows:
     print(wf.get('id'))
 " 2>/dev/null | while read -r workflow_id; do
             if [[ -n "$workflow_id" ]]; then
-                curl -s -X DELETE -H "X-N8N-API-KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NmFlZjEwMy1mOGZjLTQwNTQtYjNkMS01ZTg2Mjg5YWVkYjkiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzUzMDg3NzY1fQ.MkrIY-B7e0k7B3T-gULBk3d_UmvjzsUmNkgKfto1dxw" "${N8N_URL}/api/v1/workflows/${workflow_id}" > /dev/null 2>&1
+                curl -s -X DELETE -H "X-N8N-API-KEY: ${N8N_API_KEY}" "${N8N_URL}/api/v1/workflows/${workflow_id}" > /dev/null 2>&1
                 echo -e "${GREEN}✅ Deleted workflow ID: $workflow_id${NC}"
             fi
         done
